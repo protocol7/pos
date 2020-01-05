@@ -10,3 +10,4 @@ edition = "2018"
 crate-type = ["staticlib"]
 
 [dependencies]
+linked_list_allocator = "0.6.4"

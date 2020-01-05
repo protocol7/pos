@@ -3,6 +3,8 @@
 use core::convert::TryInto;
 use core::fmt::Error;
 use core::fmt::Write;
+use core::ptr::{read_volatile, write_volatile};
+
 
 pub struct Uart {
     base_address: usize,
@@ -23,7 +25,6 @@ impl Uart {
     }
 
     pub fn init(&mut self) {
-        let ptr = self.base_address as *mut u8;
         unsafe {
             // First, set the word length, which
             // are bits 0 and 1 of the line control register (LCR)
@@ -33,17 +34,20 @@ impl Uart {
             // fields
             //                         Word 0     Word 1
             //                         ~~~~~~     ~~~~~~
-            ptr.add(3).write_volatile((1 << 0) | (1 << 1));
+            let ptr = (self.base_address + 3) as *mut u8;
+            write_volatile(ptr, (1 << 0) | (1 << 1));
 
             // Now, enable the FIFO, which is bit index 0 of the FIFO
             // control register (FCR at offset 2).
             // Again, we can just write 1 here, but when we use left shift,
             // it's easier to see that we're trying to write bit index #0.
-            ptr.add(2).write_volatile(1 << 0);
+            let ptr = (self.base_address + 2) as *mut u8;
+            write_volatile(ptr, 1 << 0);
 
             // Enable receiver buffer interrupts, which is at bit index
             // 0 of the interrupt enable register (IER at offset 1).
-            ptr.add(1).write_volatile(1 << 0);
+            let ptr = (self.base_address + 1) as *mut u8;
+            write_volatile(ptr, 1 << 0);
 
             // If we cared about the divisor, the code below would set the divisor
             // from a global clock rate of 22.729 MHz (22,729,000 cycles per second)
@@ -70,38 +74,43 @@ impl Uart {
             // To change what the base address points to, we open the "divisor latch" by writing 1 into
             // the Divisor Latch Access Bit (DLAB), which is bit index 7 of the Line Control Register (LCR)
             // which is at base_address + 3.
-            let lcr = ptr.add(3).read_volatile();
-            ptr.add(3).write_volatile(lcr | 1 << 7);
+            let ptr = (self.base_address + 3) as *mut u8;
+            let lcr = read_volatile(ptr);
+            write_volatile(ptr, lcr | 1 << 7);
 
             // Now, base addresses 0 and 1 point to DLL and DLM, respectively.
             // Put the lower 8 bits of the divisor into DLL
-            ptr.add(0).write_volatile(divisor_least);
-            ptr.add(1).write_volatile(divisor_most);
+            let ptr = (self.base_address + 0) as *mut u8;
+            write_volatile(ptr, divisor_least);
+            let ptr = (self.base_address + 1) as *mut u8;
+            write_volatile(ptr, divisor_most);
 
             // Now that we've written the divisor, we never have to touch this again. In hardware, this
             // will divide the global clock (22.729 MHz) into one suitable for 2,400 signals per second.
             // So, to once again get access to the RBR/THR/IER registers, we need to close the DLAB bit
             // by clearing it to 0. Here, we just restore the original value of lcr.
-            ptr.add(3).write_volatile(lcr);
+            let ptr = (self.base_address + 3) as *mut u8;
+            write_volatile(ptr, lcr);
         }
     }
 
     pub fn put(&mut self, c: u8) {
         let ptr = self.base_address as *mut u8;
         unsafe {
-            ptr.write_volatile(c);
+            write_volatile(ptr, c);
         }
     }
 
     pub fn get(&mut self) -> Option<u8> {
-        let ptr = self.base_address as *mut u8;
         unsafe {
-            if ptr.add(5).read_volatile() & 1 == 0 {
+            let ptr = (self.base_address + 5) as *mut u8;
+            if read_volatile(ptr) & 1 == 0 {
                 // The DR bit is 0, meaning no data
                 None
             } else {
                 // The DR bit is 1, meaning data!
-                Some(ptr.add(0).read_volatile())
+                let ptr = self.base_address as *mut u8;
+                Some(read_volatile(ptr))
             }
         }
     }

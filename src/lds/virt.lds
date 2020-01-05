@@ -21,6 +21,7 @@ SECTIONS
     *(.text.init) *(.text .text.*)
     PROVIDE(_text_end = .);
   } >ram AT>ram :text
+
   PROVIDE(_global_pointer = .);
   .rodata : {
     PROVIDE(_rodata_start = .);

@@ -2,7 +2,7 @@
 
 brew install qemu
 
-rustup update
+rustup default nightly-2020-01-02
 rustup target add riscv64gc-unknown-none-elf
 rustup component add rustfmt
 

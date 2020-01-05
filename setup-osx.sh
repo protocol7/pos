@@ -2,9 +2,7 @@
 
 brew install qemu
 
-rustup default nightly-2020-01-02
 rustup target add riscv64gc-unknown-none-elf
-rustup component add rustfmt
 
 dd if=/dev/zero of=hdd.dsk count=32 bs=1m
 
